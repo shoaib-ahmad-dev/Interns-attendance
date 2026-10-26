@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0080B3">
+<style>:root{padding-top:env(safe-area-inset-top,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Intern Attendance Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one centered work column — date bar, day summary, intern cards, sticky export bar. */
+:root{
+  --bg:#EEF3F6; --surface:#FFFFFF; --sunk:#F5F8FA; --ink:#12222D; --muted:#5B6E7B; --line:#D6E0E6;
+  --accent:#0080B3; --accent-ink:#FFFFFF; --accent-soft:#DDF2FB; --sheet:#00B0F0;
+  --ok:#17803D; --ok-soft:#DCF3E3; --bad:#B3261E; --bad-soft:#FBE3E1; --warn:#9A5B00; --warn-soft:#FCEFD2;
+  --font:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0C1419; --surface:#141F27; --sunk:#101920; --ink:#E4EDF2; --muted:#93A6B3; --line:#263540;
+  --accent:#3DBDF0; --accent-ink:#04202C; --accent-soft:#12303E; --sheet:#00B0F0;
+  --ok:#5FD38A; --ok-soft:#143322; --bad:#FF8A80; --bad-soft:#3A1A19; --warn:#F2BE5C; --warn-soft:#3A2C10; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C1419; --surface:#141F27; --sunk:#101920; --ink:#E4EDF2; --muted:#93A6B3; --line:#263540;
+  --accent:#3DBDF0; --accent-ink:#04202C; --accent-soft:#12303E; --sheet:#00B0F0;
+  --ok:#5FD38A; --ok-soft:#143322; --bad:#FF8A80; --bad-soft:#3A1A19; --warn:#F2BE5C; --warn-soft:#3A2C10; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 120px}
+.wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* top */
+header.top{display:flex;flex-direction:column;gap:14px;padding-top:20px}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand h1{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:-.01em;text-wrap:balance}
+.brand .region{color:var(--muted);font-weight:500;font-size:.95rem}
+.themes{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface)}
+.themes button{border:0;background:transparent;padding:8px 14px;font-weight:600;font-size:.88rem;color:var(--muted)}
+.themes button+button{border-left:1px solid var(--line)}
+.themes button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.sheet-tag{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sheet-tag i{width:10px;height:10px;border-radius:2px;background:var(--sheet);display:inline-block}
+
+.datebar{display:flex;align-items:stretch;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:8px}
+.datebar .nav{width:44px;border:1px solid var(--line);background:var(--sunk);border-radius:9px;font-size:1.2rem;line-height:1}
+.datebar .nav:hover{border-color:var(--accent)}
+.datefield{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;position:relative;padding:4px 10px;border-radius:9px}
+.datefield .big{font-family:var(--mono);font-weight:600;font-size:1.25rem;font-variant-numeric:tabular-nums}
+.datefield .small{color:var(--muted);font-size:.85rem}
+.datefield input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.datefield:hover{background:var(--sunk)}
+.today{border:1px solid var(--line);background:var(--sunk);border-radius:9px;padding:0 14px;font-weight:600}
+
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.stat b{font-family:var(--mono);font-size:1.35rem;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.stat.ok b{color:var(--ok)} .stat.bad b{color:var(--bad)} .stat.warn b{color:var(--warn)}
+
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 14px;font-weight:600;font-size:.92rem}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.55;cursor:progress}
+
+/* intern cards */
+.list{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:16px;padding:14px 16px;position:relative}
+.card.status-Absent{border-left:4px solid var(--bad)} .card.status-Leave{border-left:4px solid var(--warn)} .card.status-Present{border-left:4px solid var(--ok)}
+.fields{display:flex;flex-direction:column;gap:10px;min-width:0}
+.rowhead{display:flex;align-items:center;gap:10px}
+.sr{font-family:var(--mono);font-weight:600;color:var(--muted);font-size:.85rem;min-width:26px}
+.name{flex:1;min-width:0;font-size:1.08rem;font-weight:700;border:1px solid transparent;background:transparent;border-radius:8px;padding:6px 8px;margin-left:-8px}
+.name:hover,.name:focus{border-color:var(--line);background:var(--sunk)}
+.tools{display:flex;gap:4px}
+.icon{width:32px;height:32px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center}
+.icon:hover{border-color:var(--line);color:var(--ink)}
+.icon.armed{color:var(--bad-soft);background:var(--bad);width:auto;padding:0 10px;font-size:.8rem;font-weight:700}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+label.f input,label.f textarea{font-size:.95rem;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink);border:1px solid var(--line);background:var(--sunk);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+label.f textarea{resize:vertical;min-height:42px}
+label.f input:focus,label.f textarea:focus{border-color:var(--accent);outline:none;background:var(--surface)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--sunk)}
+.seg button{border:0;background:transparent;padding:9px 6px;font-weight:700;font-size:.9rem;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"].Present{background:var(--ok-soft);color:var(--ok)}
+.seg button[aria-pressed="true"].Absent{background:var(--bad-soft);color:var(--bad)}
+.seg button[aria-pressed="true"].Leave{background:var(--warn-soft);color:var(--warn)}
+
+.photo{display:flex;flex-direction:column;gap:6px;min-width:0}
+.drop{position:relative;aspect-ratio:3/4;max-width:100%;border:1.5px dashed var(--line);border-radius:10px;background:var(--sunk);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:.85rem;font-weight:600;text-align:center;padding:10px;overflow:hidden;cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--accent)}
+.drop img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop svg{width:28px;height:28px}
+.photo .sub{display:flex;gap:6px}
+.photo .sub .btn{flex:1;padding:6px 8px;font-size:.8rem}
+.drop.has{border-style:solid}
+
+.addcard{border:1.5px dashed var(--line);background:transparent;border-radius:var(--r);padding:16px;font-weight:700;color:var(--muted)}
+.addcard:hover{border-color:var(--accent);color:var(--accent)}
+
+/* sections */
+details.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+details.panel>summary{list-style:none;cursor:pointer;padding:14px 16px;font-weight:700;display:flex;justify-content:space-between;gap:10px}
+details.panel>summary::-webkit-details-marker{display:none}
+details.panel>summary::after{content:"+";color:var(--muted);font-family:var(--mono)}
+details.panel[open]>summary::after{content:"−"}
+.panel .inner{padding:0 16px 16px;display:flex;flex-direction:column;gap:12px}
+.hist{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.hist button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;padding:10px 4px;align-items:center}
+.hist button:hover{background:var(--sunk)}
+.hist .d{font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums}
+.hist .w{color:var(--muted);font-size:.85rem;margin-left:8px;font-family:var(--font);font-weight:500}
+.c{font-weight:500;margin-left:6px}
+.hist .c{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.hist .cur{background:var(--accent-soft)}
+.empty{color:var(--muted);font-size:.9rem}
+.note{color:var(--muted);font-size:.85rem;margin:0}
+
+/* sticky bar */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--line);
+  padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bar .in{max-width:900px;margin:0 auto;display:flex;align-items:center;gap:12px;justify-content:space-between}
+.saved{font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:6px;min-width:0}
+.saved i{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.saved.on i{background:var(--ok)}
+.saved span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .btn.primary{padding:12px 18px;font-size:1rem}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:.9rem;z-index:30;max-width:calc(100% - 32px);text-align:center}
+
+@media (max-width:640px){
+  .card{grid-template-columns:minmax(0,1fr);gap:12px}
+  .photo{flex-direction:row;align-items:stretch}
+  .drop{aspect-ratio:auto;height:120px;flex:1}
+  .photo .sub{flex-direction:column;width:96px}
+  .drop{height:170px}
+  .drop img{object-fit:contain}
+  .name{font-size:1rem}
+  .actions .btn{flex:1 1 auto}
+  .two{grid-template-columns:minmax(0,1fr)}
+  .summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .brand h1{font-size:1.3rem}
+}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div>
+        <div class="sheet-tag"><i></i>Daily sheet</div>
+        <h1>Intern Attendance</h1>
+        <div class="region" id="regionLabel">Multan Region</div>
+      </div>
+      <div class="themes" role="group" aria-label="Theme">
+        <button id="themeLight" data-t="light">Light</button>
+        <button id="themeDark" data-t="dark">Dark</button>
+      </div>
+    </div>
+    <div class="datebar">
+      <button class="nav" id="prevDay" aria-label="Previous day">‹</button>
+      <div class="datefield">
+        <span class="big" id="dateBig">26/10/2026</span>
+        <span class="small" id="dateSmall">Monday</span>
+        <input type="date" id="dateInput" aria-label="Select date">
+      </div>
+      <button class="nav" id="nextDay" aria-label="Next day">›</button>
+      <button class="today" id="todayBtn">Today</button>
+    </div>
+  </header>
+
+  <section class="summary" aria-label="Day summary">
+    <div class="stat ok"><b id="sP">0</b><span>Present</span></div>
+    <div class="stat bad"><b id="sA">0</b><span>Absent</span></div>
+    <div class="stat warn"><b id="sL">0</b><span>Leave</span></div>
+    <div class="stat"><b id="sPh">0/0</b><span>Photos</span></div>
+  </section>
+
+  <div class="actions">
+    <button class="btn" id="allPresent">Mark all Present</button>
+    <button class="btn" id="copyPrev">Copy remarks from last day</button>
+    <button class="btn ghost" id="addIntern">+ Add intern</button>
+  </div>
+
+  <section class="list" id="list" aria-label="Interns"></section>
+
+  <details class="panel" id="histPanel">
+    <summary><span>Saved days <span class="c" id="histCount"></span></span></summary>
+    <div class="inner">
+      <p class="note">Each day is saved in this browser on this device. Tap a date to open that day again and re-export it.</p>
+      <div class="hist" id="hist"></div>
+    </div>
+  </details>
+
+  <details class="panel">
+    <summary>Settings &amp; backup</summary>
+    <div class="inner">
+      <div class="two">
+        <label class="f">Sheet heading (region)<input id="regionInput" value="Multan Region"></label>
+        <label class="f">File name start<input id="prefixInput" value="Interns_Attendance_Multan"></label>
+      </div>
+      <div class="two">
+        <label class="f">Default place of deployment<input id="defPlace" value="TDCP Regional Office Multan"></label>
+        <label class="f">Default activity / task<input id="defTask" value="Doing daily office work"></label>
+      </div>
+      <p class="note">New interns and new days start with these values. You can still edit them on each card.</p>
+      <div class="actions"><button class="btn" id="applyDefaults">Apply defaults to all interns on this day</button></div>
+      <p class="note">Exported file name: <b id="fnPreview">Interns_Attendance_Multan_26-10-26.xlsx</b></p>
+      <div class="actions">
+        <button class="btn" id="backupBtn">Download backup (.json)</button>
+        <label class="btn" for="restoreInput">Restore backup</label>
+        <input type="file" id="restoreInput" accept=".json,application/json" class="visually-hidden">
+      </div>
+      <p class="note">A backup contains every saved day, including photos. Download one before changing your phone or clearing browser data.</p>
+    </div>
+  </details>
+</div>
+
+<div class="bar">
+  <div class="in">
+    <div class="saved" id="savedState"><i></i><span>Not saved yet</span></div>
+    <button class="btn primary" id="exportBtn">Export Excel</button>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<template id="cardTpl">
+  <article class="card">
+    <div class="fields">
+      <div class="rowhead">
+        <span class="sr"></span>
+        <input class="name" aria-label="Intern name" placeholder="Intern name">
+        <div class="tools">
+          <button class="icon up" aria-label="Move up" title="Move up">↑</button>
+          <button class="icon del" aria-label="Remove intern" title="Remove intern">✕</button>
+        </div>
+      </div>
+      <div class="seg" role="group" aria-label="Attendance">
+        <button class="Present" data-s="Present">Present</button>
+        <button class="Absent" data-s="Absent">Absent</button>
+        <button class="Leave" data-s="Leave">Leave</button>
+      </div>
+      <label class="f">Place of deployment<input class="place" placeholder="e.g. TDCP Regional Office Multan"></label>
+      <label class="f">Activity / task performed<textarea class="task" rows="2" placeholder="e.g. Doing daily office work"></textarea></label>
+    </div>
+    <div class="photo">
+      <div class="drop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <span>Add photo</span>
+        <input type="file" accept="image/*" aria-label="Add photo">
+      </div>
+      <div class="sub" hidden>
+        <label class="btn change">Change<input type="file" accept="image/*" class="visually-hidden"></label>
+        <button class="btn danger rm">Remove</button>
+      </div>
+    </div>
+  </article>
+</template>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+/* Builds the attendance workbook in the office's format. day = {date:'YYYY-MM-DD', region, rows:[{name,place,task,status,photo(dataURL|null),pw,ph}]} */
+async function buildWorkbook(ExcelJS, day) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Intern Attendance Tool';
+  const ws = wb.addWorksheet('Attendance', {
+    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9,
+      margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 } },
+    views: [{ state: 'frozen', ySplit: 5 }]
+  });
+  const widths = [8, 26, 34, 40, 36, 16];
+  ws.columns = widths.map(w => ({ width: w }));
+
+  const blue = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF00B0F0' } };
+  const thin = { style: 'thin', color: { argb: 'FF000000' } };
+  const border = { top: thin, left: thin, bottom: thin, right: thin };
+  const center = { horizontal: 'center', vertical: 'middle', wrapText: true };
+
+  const [y, m, d] = day.date.split('-');
+  const region = (day.region || 'Multan Region').trim();
+
+  ws.mergeCells('A1:F3');
+  const t = ws.getCell('A1');
+  t.value = region; t.font = { name: 'Calibri', size: 18, bold: true }; t.alignment = center; t.fill = blue;
+  ws.mergeCells('A4:F4');
+  const t2 = ws.getCell('A4');
+  t2.value = `Intern Attendance dated ${d}/${m}/${y}`; t2.font = { name: 'Calibri', size: 14, bold: true }; t2.alignment = center; t2.fill = blue;
+  for (let r = 1; r <= 3; r++) ws.getRow(r).height = 15;
+  ws.getRow(4).height = 30;
+  ['A1', 'A4'].forEach(a => ws.getCell(a).border = border);
+
+  const heads = ['Sr.No', 'Name of Intern', 'Place of Deployment (Intern)', 'Activity / Task Performed (Remarks)', 'Pictorial Evidence', 'Attendance'];
+  const hr = ws.getRow(5); hr.height = 33;
+  heads.forEach((h, i) => { const c = hr.getCell(i + 1); c.value = h; c.font = { name: 'Calibri', size: 12, bold: true }; c.fill = blue; c.alignment = center; c.border = border; });
+
+  const statusStyle = {
+    Present: { fill: 'FFC6EFCE', font: 'FF006100' },
+    Absent: { fill: 'FFFFC7CE', font: 'FF9C0006' },
+    Leave: { fill: 'FFFFEB9C', font: 'FF9C5700' }
+  };
+  const EMU = 9525;
+  const colPx = Math.floor(widths[4] * 7 + 5);
+  const ROW_PT = 185, rowPx = Math.round(ROW_PT * 96 / 72);
+  const boxW = colPx - 16, boxH = rowPx - 16;
+
+  day.rows.forEach((p, i) => {
+    const rn = 6 + i;
+    const row = ws.getRow(rn);
+    const hasPhoto = !!p.photo;
+    row.height = hasPhoto ? ROW_PT : 40;
+    const vals = [i + 1, p.name || '', p.place || '', p.task || '', hasPhoto ? '' : (p.status === 'Present' ? 'No photo' : ''), p.status || ''];
+    vals.forEach((v, j) => {
+      const c = row.getCell(j + 1);
+      c.value = v; c.alignment = center; c.border = border;
+      c.font = { name: 'Calibri', size: 11, bold: j === 0 || j === 5, color: j === 4 ? { argb: 'FF808080' } : undefined, italic: j === 4 };
+    });
+    const st = statusStyle[p.status];
+    if (st) { const c = row.getCell(6); c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: st.fill } }; c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: st.font } }; }
+
+    if (hasPhoto) {
+      const m = /^data:image\/(png|jpe?g);base64,(.*)$/.exec(p.photo);
+      if (m) {
+        const id = wb.addImage({ base64: m[2], extension: m[1] === 'png' ? 'png' : 'jpeg' });
+        const s = Math.min(boxW / p.pw, boxH / p.ph);
+        const w = Math.round(p.pw * s), h = Math.round(p.ph * s);
+        const offX = Math.round((colPx - w) / 2), offY = Math.round((rowPx - h) / 2);
+        ws.addImage(id, {
+          tl: { nativeCol: 4, nativeColOff: offX * EMU, nativeRow: rn - 1, nativeRowOff: offY * EMU },
+          ext: { width: w, height: h },
+          editAs: 'oneCell'
+        });
+      }
+    }
+  });
+  return wb;
+}
+if (typeof module !== 'undefined') module.exports = { buildWorkbook };
+
+</script>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);document.querySelectorAll('.themes button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t===t)));try{localStorage.setItem('ia-theme',t)}catch(e){}}
+let savedTheme='light';try{savedTheme=localStorage.getItem('ia-theme')||'light'}catch(e){}
+applyTheme(savedTheme==='dark'?'dark':'light');
+document.querySelectorAll('.themes button').forEach(b=>b.onclick=()=>applyTheme(b.dataset.t));
+const DEFAULT_INTERNS=[
+  {id:'i1',name:'Shoaib Ahmad',place:'TDCP Regional Office Multan',task:'Doing daily office work'},
+  {id:'i2',name:'Hassan Nazar',place:'TDCP Regional Office Multan',task:'Doing daily office work'},
+  {id:'i3',name:'Muhammad Ammar Raza',place:'TDCP Regional Office Multan',task:'Doing daily office work'}
+];
+const WD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+/* ---------- storage (IndexedDB, falls back to memory) ---------- */
+const mem={days:{},meta:{}};
+let dbp=null;
+function openDB(){
+  if(dbp) return dbp;
+  dbp=new Promise(res=>{
+    try{
+      const rq=indexedDB.open('intern-attendance',1);
+      rq.onupgradeneeded=()=>{const d=rq.result;d.createObjectStore('days');d.createObjectStore('meta');};
+      rq.onsuccess=()=>res(rq.result);
+      rq.onerror=()=>res(null);
+      rq.onblocked=()=>res(null);
+    }catch(e){res(null)}
+  });
+  return dbp;
+}
+async function idb(store,mode,fn){
+  const d=await openDB();
+  if(!d) return fn(null);
+  return new Promise(res=>{
+    try{const tx=d.transaction(store,mode);const st=tx.objectStore(store);const r=fn(st);
+      if(r&&'onsuccess' in r){r.onsuccess=()=>res(r.result);r.onerror=()=>res(undefined);}else{tx.oncomplete=()=>res();tx.onerror=()=>res();}
+    }catch(e){res(undefined)}
+  });
+}
+const get=(s,k)=>idb(s,'readonly',st=>st?st.get(k):(mem[s][k])).then(v=>v===undefined?mem[s][k]:v);
+const put=(s,k,v)=>{mem[s][k]=v;return idb(s,'readwrite',st=>st?st.put(v,k):undefined)};
+const del=(s,k)=>{delete mem[s][k];return idb(s,'readwrite',st=>st?st.delete(k):undefined)};
+const allKeys=s=>idb(s,'readonly',st=>st?st.getAllKeys():null).then(v=>Array.isArray(v)?v:Object.keys(mem[s]));
+const allVals=s=>idb(s,'readonly',st=>st?st.getAll():null).then(v=>Array.isArray(v)?v:Object.values(mem[s]));
+
+/* ---------- state ---------- */
+let interns=[], settings={region:'Multan Region',prefix:'Interns_Attendance_Multan',place:'TDCP Regional Office Multan',task:'Doing daily office work'};
+let day=null, saved=false;
+
+function todayISO(){const d=new Date();return iso(d)}
+function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function parse(s){const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)}
+function dmy(s){const [y,m,d]=s.split('-');return d+'/'+m+'/'+y}
+function fileName(){const [y,m,d]=day.date.split('-');return (settings.prefix||'Interns_Attendance').replace(/[\\/:*?"<>|]+/g,'_')+'_'+d+'-'+m+'-'+y.slice(2)+'.xlsx'}
+function uid(){return 'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+
+function freshDay(date){
+  return {date,rows:interns.map(p=>({id:p.id,name:p.name,place:p.place||settings.place,task:p.task||settings.task,status:'Present',photo:null,pw:0,ph:0}))};
+}
+
+async function loadDate(date){
+  const rec=await get('days',date);
+  if(rec){day=rec;saved=true}else{day=freshDay(date);saved=false}
+  $('#dateInput').value=date;
+  render();renderHist();
+}
+
+/* ---------- saving ---------- */
+let saveT=null;
+function touch(){
+  saved=false;setSaved('Saving…');
+  clearTimeout(saveT);saveT=setTimeout(doSave,400);
+}
+async function doSave(){
+  day.savedAt=Date.now();
+  await put('days',day.date,day);
+  await put('meta','interns',interns);
+  saved=true;setSaved();renderHist();
+}
+function setSaved(txt){
+  const el=$('#savedState');
+  el.classList.toggle('on',saved);
+  el.querySelector('span').textContent=txt||(saved?'Saved · '+dmy(day.date):'Not saved yet');
+}
+function syncMaster(row){
+  const m=interns.find(p=>p.id===row.id);
+  if(m){m.name=row.name;m.place=row.place;m.task=row.task}
+}
+
+/* ---------- rendering ---------- */
+function renderHeader(){
+  const d=parse(day.date);
+  $('#dateBig').textContent=dmy(day.date);
+  const t=todayISO();
+  $('#dateSmall').textContent=WD[d.getDay()]+' · '+d.getDate()+' '+MO[d.getMonth()]+' '+d.getFullYear()+(day.date===t?' · Today':'');
+  $('#regionLabel').textContent=settings.region||'Multan Region';
+  $('#fnPreview').textContent=fileName();
+}
+function renderSummary(){
+  const r=day.rows;
+  $('#sP').textContent=r.filter(x=>x.status==='Present').length;
+  $('#sA').textContent=r.filter(x=>x.status==='Absent').length;
+  $('#sL').textContent=r.filter(x=>x.status==='Leave').length;
+  $('#sPh').textContent=r.filter(x=>x.photo).length+'/'+r.length;
+}
+function render(){
+  renderHeader();
+  const list=$('#list');list.textContent='';
+  const tpl=$('#cardTpl');
+  day.rows.forEach((row,i)=>{
+    const n=tpl.content.firstElementChild.cloneNode(true);
+    n.dataset.id=row.id;
+    n.querySelector('.sr').textContent=String(i+1).padStart(2,'0');
+    const name=n.querySelector('.name');name.value=row.name;name.id='name-'+row.id;
+    const place=n.querySelector('.place');place.value=row.place;place.id='place-'+row.id;
+    const task=n.querySelector('.task');task.value=row.task;task.id='task-'+row.id;
+    name.oninput=()=>{row.name=name.value;syncMaster(row);touch()};
+    place.oninput=()=>{row.place=place.value;syncMaster(row);touch()};
+    task.oninput=()=>{row.task=task.value;syncMaster(row);touch()};
+    const setStatus=()=>{n.className='card status-'+row.status;n.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===row.status)))};
+    setStatus();
+    n.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{row.status=b.dataset.s;setStatus();renderSummary();touch()});
+    // photo
+    const drop=n.querySelector('.drop'),sub=n.querySelector('.photo .sub');
+    const showPhoto=()=>{
+      const old=drop.querySelector('img');if(old)old.remove();
+      if(row.photo){const im=new Image();im.src=row.photo;im.alt='Photo of '+(row.name||'intern');drop.insertBefore(im,drop.firstChild);drop.classList.add('has');sub.hidden=false;drop.querySelector('input').hidden=true}
+      else{drop.classList.remove('has');sub.hidden=true;drop.querySelector('input').hidden=false}
+    };
+    showPhoto();
+    const take=async f=>{if(!f)return;try{const p=await processImage(f);row.photo=p.url;row.pw=p.w;row.ph=p.h;showPhoto();renderSummary();touch()}catch(e){toast('This photo could not be opened. Try a JPG or PNG image.')}};
+    n.querySelectorAll('input[type=file]').forEach(inp=>inp.onchange=()=>{take(inp.files[0]);inp.value=''});
+    drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over')});
+    drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+    drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');take(e.dataTransfer.files[0])});
+    drop.addEventListener('click',e=>{if(row.photo&&e.target.tagName==='IMG'){n.querySelector('.change input').click()}});
+    n.querySelector('.rm').onclick=()=>{row.photo=null;row.pw=row.ph=0;showPhoto();renderSummary();touch()};
+    // tools
+    const up=n.querySelector('.up');up.disabled=i===0;up.style.visibility=i===0?'hidden':'visible';
+    up.onclick=()=>{
+      const a=day.rows;[a[i-1],a[i]]=[a[i],a[i-1]];
+      const ia=interns.findIndex(p=>p.id===a[i].id),ib=interns.findIndex(p=>p.id===a[i-1].id);
+      if(ia>-1&&ib>-1){[interns[ia],interns[ib]]=[interns[ib],interns[ia]]}
+      render();touch();
+    };
+    const delb=n.querySelector('.del');let armT=null;
+    delb.onclick=()=>{
+      if(!delb.classList.contains('armed')){delb.classList.add('armed');delb.textContent='Tap to remove';clearTimeout(armT);armT=setTimeout(()=>{delb.classList.remove('armed');delb.textContent='✕'},3000);return}
+      day.rows.splice(i,1);interns=interns.filter(p=>p.id!==row.id);render();touch();toast((row.name||'Intern')+' removed');
+    };
+    list.appendChild(n);
+  });
+  const add=document.createElement('button');add.className='addcard';add.textContent='+ Add intern';add.onclick=addIntern;list.appendChild(add);
+  renderSummary();setSaved();
+}
+async function renderHist(){
+  const vals=(await allVals('days'))||[];
+  vals.sort((a,b)=>b.date.localeCompare(a.date));
+  $('#histCount').textContent=vals.length?vals.length+' saved':'';
+  const h=$('#hist');h.textContent='';
+  if(!vals.length){const p=document.createElement('p');p.className='empty';p.textContent='No saved days yet. Make any entry and the day is saved automatically.';h.appendChild(p);return}
+  vals.forEach(v=>{
+    const b=document.createElement('button');if(v.date===day.date)b.classList.add('cur');
+    const P=v.rows.filter(r=>r.status==='Present').length,A=v.rows.filter(r=>r.status==='Absent').length,L=v.rows.filter(r=>r.status==='Leave').length;
+    b.innerHTML='<span><span class="d"></span><span class="w"></span></span><span class="c"></span>';
+    b.querySelector('.d').textContent=dmy(v.date);
+    b.querySelector('.w').textContent=WD[parse(v.date).getDay()];
+    b.querySelector('.c').textContent=P+' P · '+A+' A · '+L+' L';
+    b.onclick=()=>{loadDate(v.date);window.scrollTo({top:0,behavior:'smooth'})};
+    h.appendChild(b);
+  });
+}
+
+/* ---------- images ---------- */
+function processImage(file){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file);const img=new Image();
+    img.onload=()=>{
+      const max=1200;let w=img.naturalWidth,h=img.naturalHeight;const s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);
+      const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);res({url:c.toDataURL('image/jpeg',0.82),w,h});
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('bad image'))};
+    img.src=url;
+  });
+}
+
+/* ---------- actions ---------- */
+function addIntern(){
+  const p={id:uid(),name:'',place:settings.place,task:settings.task};
+  interns.push(p);day.rows.push({...p,status:'Present',photo:null,pw:0,ph:0});
+  render();touch();
+  const el=document.getElementById('name-'+p.id);if(el){el.focus();el.scrollIntoView({block:'center',behavior:'smooth'})}
+}
+$('#addIntern').onclick=addIntern;
+$('#allPresent').onclick=()=>{day.rows.forEach(r=>r.status='Present');render();touch();toast('All interns marked Present')};
+$('#copyPrev').onclick=async()=>{
+  const keys=(await allKeys('days')).filter(k=>k<day.date).sort();
+  if(!keys.length){toast('No saved day found before this date');return}
+  const prev=await get('days',keys[keys.length-1]);
+  let n=0;day.rows.forEach(r=>{const p=prev.rows.find(x=>x.id===r.id);if(p){r.task=p.task;r.place=p.place;n++}});
+  render();touch();toast('Copied remarks for '+n+' intern'+(n===1?'':'s')+' from '+dmy(prev.date));
+};
+
+function shift(n){const d=parse(day.date);d.setDate(d.getDate()+n);loadDate(iso(d))}
+$('#prevDay').onclick=()=>shift(-1);
+$('#nextDay').onclick=()=>shift(1);
+$('#todayBtn').onclick=()=>loadDate(todayISO());
+$('#dateInput').onchange=e=>{if(e.target.value)loadDate(e.target.value)};
+$('.datefield').addEventListener('click',()=>{const i=$('#dateInput');try{i.showPicker&&i.showPicker()}catch(e){}});
+
+$('#regionInput').oninput=e=>{settings.region=e.target.value;renderHeader();put('meta','settings',settings)};
+$('#prefixInput').oninput=e=>{settings.prefix=e.target.value;renderHeader();put('meta','settings',settings)};
+$('#defPlace').oninput=e=>{settings.place=e.target.value;put('meta','settings',settings)};
+$('#defTask').oninput=e=>{settings.task=e.target.value;put('meta','settings',settings)};
+$('#applyDefaults').onclick=()=>{day.rows.forEach(r=>{r.place=settings.place;r.task=settings.task;syncMaster(r)});render();touch();toast('Defaults applied to all interns')};
+
+/* ---------- file saving ---------- */
+let dlNs;
+async function saveFile(filename,blob){
+  if(window.claude&&window.claude.use){
+    if(dlNs===undefined){try{dlNs=await window.claude.use('downloads')}catch(e){dlNs=null}}
+    if(dlNs){
+      try{await dlNs.save({filename,data:blob});return 'saved'}
+      catch(e){if(e&&e.code==='declined')return 'declined';if(e&&e.code==='rate_limited'){toast('A download prompt is already open');return 'busy'}throw e}
+    }
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);return 'saved';
+}
+
+$('#exportBtn').onclick=async()=>{
+  const btn=$('#exportBtn');
+  if(!day.rows.length){toast('Add at least one intern first');return}
+  if(typeof ExcelJS==='undefined'){toast('The Excel library did not load. Check your internet connection and reload the page.');return}
+  const missing=day.rows.filter(r=>!r.name.trim()).length;
+  if(missing){toast(missing+(missing===1?' intern has':' interns have')+' no name. Add the name before exporting.');return}
+  btn.disabled=true;btn.textContent='Preparing…';
+  try{
+    if(!saved){clearTimeout(saveT);await doSave()}
+    const wb=await buildWorkbook(ExcelJS,{...day,region:settings.region});
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const r=await saveFile(fileName(),blob);
+    if(r==='saved')toast(fileName()+' downloaded');
+  }catch(e){toast('Export failed. Please try again.')}
+  finally{btn.disabled=false;btn.textContent='Export Excel'}
+};
+
+$('#backupBtn').onclick=async()=>{
+  const data={app:'intern-attendance',version:1,exportedAt:new Date().toISOString(),settings,interns,days:await allVals('days')};
+  try{const r=await saveFile('attendance_backup_'+todayISO()+'.json',new Blob([JSON.stringify(data)],{type:'application/json'}));if(r==='saved')toast('Backup downloaded')}catch(e){toast('Backup could not be downloaded')}
+};
+$('#restoreInput').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{
+    const data=JSON.parse(await f.text());
+    if(data.app!=='intern-attendance'||!Array.isArray(data.days))throw 0;
+    for(const d of data.days)await put('days',d.date,d);
+    if(Array.isArray(data.interns)){interns=data.interns;await put('meta','interns',interns)}
+    if(data.settings){settings={...settings,...data.settings};await put('meta','settings',settings);$('#regionInput').value=settings.region;$('#prefixInput').value=settings.prefix}
+    await loadDate(day.date);toast(data.days.length+' day'+(data.days.length===1?'':'s')+' restored');
+  }catch(err){toast('This is not a valid backup file')}
+};
+
+let toastT;
+function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2800)}
+
+/* ---------- boot ---------- */
+(async()=>{
+  const st=await get('meta','settings');if(st)settings={...settings,...st};
+  $('#regionInput').value=settings.region;$('#prefixInput').value=settings.prefix;$('#defPlace').value=settings.place;$('#defTask').value=settings.task;
+  const ins=await get('meta','interns');interns=Array.isArray(ins)?ins:DEFAULT_INTERNS.map(x=>({...x}));
+  await loadDate(todayISO());
+})();
+})();
+</script>
+
+</body>
+</html>
